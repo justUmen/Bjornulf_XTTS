@@ -15,4 +15,5 @@ fugashi[unidic-lite]
 coqui-tts[languages]==0.24.1
 transformers==4.36.2
 uuid
-spacy==3.7.2 
+spacy==3.7.2
+xtts_api_server
