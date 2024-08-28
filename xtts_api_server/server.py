@@ -19,6 +19,9 @@ from xtts_api_server.tts_funcs import TTSWrapper,supported_languages,InvalidSett
 from xtts_api_server.RealtimeTTS import TextToAudioStream, CoquiEngine
 from xtts_api_server.modeldownloader import check_stream2sentence_version,install_deepspeed_based_on_python_version
 
+this_dir = Path(__file__).parent.resolve()
+silence_wav = this_dir / "RealtimeTTS" / "silence.wav"
+            
 # Default Folders , you can change them via API
 DEVICE = os.getenv('DEVICE',"cuda")
 OUTPUT_FOLDER = os.getenv('OUTPUT', 'output')
@@ -233,20 +236,25 @@ async def tts_stream(request: Request, text: str = Query(), speaker_wav: str = Q
                             detail="Language code sent is either unsupported or misspelled.")
             
     async def generator():
-        chunks = XTTS.process_tts_to_file(
-            text=text,
-            speaker_name_or_path=speaker_wav,
-            language=language.lower(),
-            stream=True,
-        )
-        # Write file header to the output stream.
-        yield XTTS.get_wav_header()
-        async for chunk in chunks:
-            # Check if the client is still connected.
-            disconnected = await request.is_disconnected()
-            if disconnected:
-                break
-            yield chunk
+        if text.strip() == '.':
+           # If text is just a dot, yield only the silence.wav file
+            with open(silence_wav, 'rb') as silence_file:
+                yield silence_file.read()
+        else:
+            chunks = XTTS.process_tts_to_file(
+                text=text,
+                speaker_name_or_path=speaker_wav,
+                language=language.lower(),
+                stream=True,
+            )
+            # Write file header to the output stream.
+            yield XTTS.get_wav_header()
+            async for chunk in chunks:
+                # Check if the client is still connected.
+                disconnected = await request.is_disconnected()
+                if disconnected:
+                    break
+                yield chunk
 
     return StreamingResponse(generator(), media_type='audio/x-wav')
 
@@ -342,4 +350,4 @@ async def tts_to_file(request: SynthesisFileRequest):
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
 
 if __name__ == "__main__":
-    uvicorn.run(app,host="0.0.0.0",port=8002)
+    uvicorn.run(app,host="0.0.0.0",port=8020)
