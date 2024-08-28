@@ -14,7 +14,7 @@ Choose location of course before cloning.
 ```
 git clone https://github.com/justUmen/xtts-api-server
 cd xtts-api-server
-
+pip install -r requirements.txt
 cd xtts_api_server
-python server.py
+python bjornulf_xtts_server.py
 ```
