@@ -15,9 +15,14 @@ from argparse import ArgumentParser
 from pathlib import Path
 from uuid import uuid4
 
-from xtts_api_server.tts_funcs import TTSWrapper,supported_languages,InvalidSettingsError
-from xtts_api_server.RealtimeTTS import TextToAudioStream, CoquiEngine
-from xtts_api_server.modeldownloader import check_stream2sentence_version,install_deepspeed_based_on_python_version
+from tts_funcs import TTSWrapper,supported_languages,InvalidSettingsError
+from RealtimeTTS import TextToAudioStream, CoquiEngine
+from modeldownloader import check_stream2sentence_version,install_deepspeed_based_on_python_version
+
+import io
+from pydub import AudioSegment
+import asyncio
+import struct
 
 this_dir = Path(__file__).parent.resolve()
 silence_wav = this_dir / "RealtimeTTS" / "silence.wav"
@@ -224,39 +229,76 @@ def set_tts_settings_endpoint(tts_settings_req: TTSSettingsRequest):
         logger.error(e)
         raise HTTPException(status_code=400, detail=str(e))
 
+
 @app.get('/tts_stream')
 async def tts_stream(request: Request, text: str = Query(), speaker_wav: str = Query(), language: str = Query()):
-    # Validate local model source.
+    logger.debug(f"Received TTS request: text='{text}', speaker='{speaker_wav}', language='{language}'")
+    
     if XTTS.model_source != "local":
-        raise HTTPException(status_code=400,
-                            detail="HTTP Streaming is only supported for local models.")
-    # Validate language code against supported languages.
+        logger.error("Streaming attempted with non-local model")
+        raise HTTPException(status_code=400, detail="HTTP Streaming is only supported for local models.")
     if language.lower() not in supported_languages:
-        raise HTTPException(status_code=400,
-                            detail="Language code sent is either unsupported or misspelled.")
+        logger.error(f"Unsupported language: {language}")
+        raise HTTPException(status_code=400, detail="Language code sent is either unsupported or misspelled.")
             
     async def generator():
         if text.strip() == '.':
-           # If text is just a dot, yield only the silence.wav file
-            with open(silence_wav, 'rb') as silence_file:
-                yield silence_file.read()
+            logger.debug("Generating silence")
+            silence = AudioSegment.silent(duration=1000, frame_rate=24000)
+            buffer = io.BytesIO()
+            silence.export(buffer, format="mp3", bitrate="160k", parameters=["-write_xing", "0"])
+            yield buffer.getvalue()
         else:
-            chunks = XTTS.process_tts_to_file(
+            logger.debug("Starting TTS generation")
+            raw_chunks = XTTS.process_tts_to_file(
                 text=text,
                 speaker_name_or_path=speaker_wav,
                 language=language.lower(),
                 stream=True,
             )
-            # Write file header to the output stream.
-            yield XTTS.get_wav_header()
-            async for chunk in chunks:
-                # Check if the client is still connected.
-                disconnected = await request.is_disconnected()
-                if disconnected:
+            
+            accumulated_audio = AudioSegment.empty()
+            chunk_count = 0
+            
+            # Add 10ms of silence at the beginning
+            initial_silence = AudioSegment.silent(duration=750, frame_rate=24000)
+            accumulated_audio += initial_silence
+            
+            async for raw_chunk in raw_chunks:
+                if await request.is_disconnected():
+                    logger.debug("Client disconnected")
+                    return
+                
+                if not raw_chunk:  # Empty chunk indicates end of stream
                     break
-                yield chunk
+                
+                chunk_count += 1
+                logger.debug(f"Processing chunk {chunk_count}: {len(raw_chunk)} bytes")
+                
+                # Convert raw audio data to AudioSegment
+                audio_segment = AudioSegment(
+                    data=raw_chunk,
+                    sample_width=2,  # 16-bit
+                    frame_rate=24000,  # Adjust if necessary
+                    channels=1  # Mono
+                )
+                
+                accumulated_audio += audio_segment
+                logger.debug(f"Total accumulated_audio duration: {len(accumulated_audio)} ms")
+            
+            # Add 500ms of silence at the end
+            silence = AudioSegment.silent(duration=750, frame_rate=24000)
+            accumulated_audio += silence
+            
+            # Convert the entire audio to MP3
+            buffer = io.BytesIO()
+            accumulated_audio.export(buffer, format="mp3", bitrate="160k", parameters=["-write_xing", "0"])
+            
+            logger.debug(f"Finished processing. Total chunks: {chunk_count}")
+            yield buffer.getvalue()
 
-    return StreamingResponse(generator(), media_type='audio/x-wav')
+    logger.debug("Returning StreamingResponse")
+    return StreamingResponse(generator(), media_type='audio/mpeg')
 
 @app.post("/tts_to_audio/")
 async def tts_to_audio(request: SynthesisRequest, background_tasks: BackgroundTasks):

@@ -22,6 +22,18 @@ import io
 import wave
 import numpy as np
 
+from pydub import AudioSegment
+import pydub.exceptions
+import os
+import logging
+from datetime import datetime
+from fastapi import FastAPI, Query, Request, HTTPException
+from fastapi.responses import StreamingResponse
+import asyncio
+
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
+
 # Class to check tts settings
 class InvalidSettingsError(Exception):
     pass
@@ -541,75 +553,46 @@ class TTSWrapper:
 
         return speaker_wav
 
-
     # MAIN FUNC
-    def process_tts_to_file(self, text, speaker_name_or_path, language, file_name_or_path="out.wav", stream=False):
+
+# class TTSProcessor:
+    def process_tts_to_file(self, text, speaker_name_or_path, language, file_name_or_path="out.mp3", stream=False):
         try:
+            logger.debug(f"Starting TTS processing: text='{text}', speaker='{speaker_name_or_path}', language='{language}'")
             speaker_wav = self.get_speaker_wav(speaker_name_or_path)
-            # Determine output path based on whether a full path or a file name was provided
-            if os.path.isabs(file_name_or_path):
-                # An absolute path was provided by user; use as is.
-                output_file = file_name_or_path
-            else:
-                # Only a filename was provided; prepend with output folder.
-                output_file = os.path.join(self.output_folder, file_name_or_path)
+            output_file = os.path.join(self.output_folder, file_name_or_path) if not os.path.isabs(file_name_or_path) else file_name_or_path
 
-            # Check if 'text' is a valid path to a '.txt' file.
-            if os.path.isfile(text) and text.lower().endswith('.txt'):
-                with open(text, 'r', encoding='utf-8') as f:
-                    text = f.read()
-
-            # Generate unic name for cached result
-            if self.enable_cache_results:
-                timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-                file_name_or_path = timestamp + "_cache_" + file_name_or_path
-                output_file = os.path.join(self.output_folder, file_name_or_path)
-
-            # Replace double quotes with single, asterisks, carriage returns, and line feeds
             clear_text = self.clean_text(text)
+            logger.debug(f"Cleaned text: '{clear_text}'")
 
-            # Generate a dictionary of the parameters to use for caching.
-            text_params = {
-              'text': clear_text,
-              'speaker_name_or_path': speaker_name_or_path,
-              'language': language
-            }
+            self.switch_model_device()  # Load to CUDA if lowram ON
+            logger.debug("Switched model device")
 
-            # Check if results are already cached.
-            cached_result = self.check_cache(text_params)
-
-            if cached_result is not None:
-                logger.info("Using cached result.")
-                return cached_result  # Return the path to the cached result.
-
-            self.switch_model_device() # Load to CUDA if lowram ON
-
-            # Define generation if model via api or locally
             if self.model_source == "local":
                 if stream:
                     async def stream_fn():
-                        async for chunk in self.stream_generation(clear_text,speaker_name_or_path,speaker_wav,language,output_file):
+                        logger.debug("Starting streaming generation")
+                        chunk_count = 0
+                        async for chunk in self.stream_generation(clear_text, speaker_name_or_path, speaker_wav, language, output_file):
+                            chunk_count += 1
+                            logger.debug(f"Generated chunk {chunk_count}: {len(chunk)} bytes")
                             yield chunk
+                        logger.debug(f"Finished streaming. Total chunks: {chunk_count}")
                         self.switch_model_device()
-                        # After generation completes successfully...
-                        self.update_cache(text_params,output_file)
+
                     return stream_fn()
                 else:
-                    self.local_generation(clear_text,speaker_name_or_path,speaker_wav,language,output_file)
+                    logger.debug("Starting non-streaming generation")
+                    self.local_generation(clear_text, speaker_name_or_path, speaker_wav, language, output_file)
+                    logger.debug("Finished non-streaming generation")
             else:
-                self.api_generation(clear_text,speaker_wav,language,output_file)
-            
-            self.switch_model_device() # Unload to CPU if lowram ON
+                logger.debug("Using API generation")
+                self.api_generation(clear_text, speaker_wav, language, output_file)
 
-            # After generation completes successfully...
-            self.update_cache(text_params,output_file)
+            self.switch_model_device()  # Unload to CPU if lowram ON
+            logger.debug("TTS processing completed")
             return output_file
 
         except Exception as e:
-            raise e  # Propagate exceptions for endpoint handling.
-
-        
-
-
-
-        
+            logger.error(f"Error in TTS processing: {str(e)}", exc_info=True)
+            raise
