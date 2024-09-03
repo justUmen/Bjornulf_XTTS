@@ -1,6 +1,6 @@
-# Fork of xtts-api-server for lobechat
+# Fork of xtts-api-server for lobechat, v0.2
 
-## Installation (Test with python v3.11.9)
+## Installation (Tested with python v3.11.9)
 
 Create virtual environment and activate it.
 
@@ -12,8 +12,8 @@ source ~/venv/xtts2/bin/activate
 Choose location of course before cloning.  
 
 ```
-git clone https://github.com/justUmen/xtts-api-server
-cd xtts-api-server
+git clone https://github.com/justUmen/Bjornulf_XTTS/
+cd Bjornulf_XTTS
 pip install -r requirements.txt
 cd xtts_api_server
 python bjornulf_xtts_server.py

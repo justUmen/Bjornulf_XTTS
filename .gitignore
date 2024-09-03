@@ -8,3 +8,8 @@ xtts_api_server/models
 xtts_api_server/RealtimeTTS/engines/coqui_engine_old.py
 xtts_models
 modules-xtts.txt
+# Ignore everything in the speakers folder
+xtts_api_server/speakers/*
+# But not the specific files
+!xtts_api_server/speakers/default.wav
+!xtts_api_server/speakers/en/default.wav
