@@ -60,6 +60,14 @@ I also use a custom class "kitty_xtts" to manage it in my window manager. (In my
 To open the server i just click on this icon.  
 To close the server, i just go on the kitty window terminal and CTRL + C inside.  
 
+## How to add a voice ?
+
+Just put a voice sample .wav file in the `xtts_api_server/speakers` folder. (I recommend creating a subfolder for each language. like `en`, `fr`, etc...)  
+
+Here you can download a sample with `Attenborough` voice (English so put in a folder `en`) : <https://drive.google.com/file/d/1JOSpavgN0GS2OswXbQCpqL5kYV0nSr6n/view?usp=sharing>  
+
+Note : You can actually use an english sample to speak another language. (Not ideal but you can try it out.)  
+
 ## 🗔 Linux Command line usage (`bjornulf_tts.sh`) :
 
 ```
