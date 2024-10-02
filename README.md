@@ -11,7 +11,7 @@ After install and launch, you can use my TTS server in multiple ways :
 
 ❤️❤️❤️ <https://ko-fi.com/bjornulf> ❤️❤️❤️
 
-# ☘ This project is a component of my integrated AI trio. ☘
+# ☘ This project is part of my AI trio. ☘
 
 1 - 📝 Text/Chat AI generation : [Bjornulf Lobe Chat Fork](https://github.com/justUmen/Bjornulf_lobe-chat)  
 <u>**2 - 🔊 Speech AI generation** : [Bjornulf Text To Speech](https://github.com/justUmen/Bjornulf_XTTS) (you are here)</u>   
