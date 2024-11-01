@@ -15,7 +15,7 @@ After install and launch, you can use my TTS server in multiple ways :
 
 1 - 📝 Text/Chat AI generation : [Bjornulf Lobe Chat Fork](https://github.com/justUmen/Bjornulf_lobe-chat)  
 <u>**2 - 🔊 Speech AI generation** : [Bjornulf Text To Speech](https://github.com/justUmen/Bjornulf_XTTS) (you are here)</u>   
-3 - 🎨 Image AI generation : [Bjornulf Comfyui custom nodes](https://github.com/justUmen/ComfyUI-BjornulfNodes)  
+3 - 🎨 Image AI generation : [Bjornulf Comfyui custom nodes](https://github.com/justUmen/Bjornulf_custom_nodes)  
 
 ## Installation of the server (Tested with python v3.11.9)
 
